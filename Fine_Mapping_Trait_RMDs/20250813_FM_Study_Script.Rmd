@@ -1,0 +1,726 @@
+---
+title: "20250813_FM_Study_Script"
+output: html_document
+date: "2025-08-08"
+author: Gabrielle DeNonno
+---
+
+NOTE: we have been doing all our work in genome build hg19 because vcf tools requires a different version for hg38. Note that this means all files will be converted to hg19 / all 1000 genomes files will be hg19.
+
+```{r}
+library(data.table)
+library(susieR)
+library(ggplot2)
+#library(RColorBrewer)
+library(MungeSumstats)
+library(SNPlocs.Hsapiens.dbSNP155.GRCh38)
+library(BSgenome.Hsapiens.NCBI.GRCh38)
+library(SNPlocs.Hsapiens.dbSNP155.GRCh37)
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
+library(Matrix)
+```
+
+Subsetted table from LeAnn's MPRA metadata table that contains GWASs for FM. These GWASs will need to be filtered down based on other criteria (e.g. meta-analysis, GWAS size, etc.)
+```{r}
+run_FM_table <- fread("~/fine_mapping/RUN_FM_TABLE.tsv")
+```
+
+```{bash}
+main_directory="$HOME/fine_mapping/"
+```
+
+R and Bash variables for selected study. 
+Note: GWAS_build is assumed to be GRCh38 if the GWAS was harmonized. 
+```{r}
+Trait <- "IBD"
+Study <- "GCST004131" # GWAS catalog ID number
+Ancestry <- "EUR"
+n <- 59957 # GWAS sample size
+GWAS_build <- "GRCh38"
+```
+
+```{bash}
+Trait="IBD"
+Study="GCST004131"
+Ancestry="EUR"
+GWAS_link="https://ftp.ebi.ac.uk/pub/databases/gwas/summary_statistics/GCST004001-GCST005000/GCST004131/harmonised/"
+GWAS_file_name="28067908-GCST004131-EFO_0003767.h.tsv.gz"
+GWAS_build="GRCh38"
+```
+
+```{r}
+main.dir <- "~/fine_mapping/"
+trait.dir <- paste0("~/fine_mapping/FM_results/", Trait, "/")
+if (!dir.exists(trait.dir)) {
+  dir.create(trait.dir)
+}
+```
+
+```{r}
+main.dir <- "~/fine_mapping/"
+working.dir <- paste0(trait.dir, Trait, "_", Study, "_", Ancestry, "/")
+if (!dir.exists(working.dir)) {
+  dir.create(working.dir)
+}
+```
+
+# Retrieve and format the GWAS
+
+Download the GWAS summary stats and rename to follow naming convention. Look at first 5 lines to ensure genome build is correct.
+```{bash}
+cd ~/fine_mapping/GWAS_sumstats_G
+
+mkdir ${Trait}_sumstats
+
+cd ${Trait}_sumstats
+
+wget "${GWAS_link}${GWAS_file_name}" # Download the GWAS summary stats using GWAS catalog link
+
+mv ${GWAS_file_name} ${Trait}_${Study}_${Ancestry}_sumstats_${GWAS_build}.tsv.gz # Rename
+
+zcat ${Trait}_${Study}_${Ancestry}_sumstats_${GWAS_build}.tsv.gz | head -n 5
+```
+
+Munge the GWAS in SLURM. R script that is being run in Slurm job needs to be corrected for the current variables. Memory for this step has proven to be an issue. ~/fine_mapping/slurm_scripts/MungeSumstats_flipfrq_slurm.R
+
+Learn more about MuungeSumstats here: https://www.bioconductor.org/packages/release/bioc/html/MungeSumstats.html
+
+```{bash}
+cd ${main_directory}GWAS_sumstats_G
+chmod +x ${main_directory}slurm_scripts/MungeSumstats_slurm.sh # Making sure slurm script is executable. (Only need to do once)
+sbatch ${main_directory}slurm_scripts/MungeSumstats_slurm.sh # Submit Slurm job 
+scontrol show job 61708
+```
+
+```{r}
+gwas_munged <- fread(paste0(main.dir, "GWAS_sumstats_G/", Trait, "_sumstats/", Trait, "_", Study, "_", Ancestry, "_sumstats_", GWAS_build, "_MUNGED.tsv.gz"))
+```
+
+If the GWAS uses genome build GRCh38, sumstats need to be lifted over. This is often the case for harmonized GWASs.
+
+```{r}
+lifted_sumstats <- liftover(sumstats_dt = gwas_munged,
+                            ref_genome = "GRCh38",  # or "GRCh37"
+                            convert_ref_genome = "GRCh37")  # or vice versa
+
+data.table::fwrite(lifted_sumstats, file = paste0(main.dir, "GWAS_sumstats_G/", Trait, "_sumstats/", Trait, "_", Study, "_", Ancestry, "_sumstats_GRCh37_MUNGED.tsv.gz"), sep = "\t")
+```
+
+```{r}
+lifted_sumstats <- fread(paste0(main.dir, "GWAS_sumstats_G/", Trait, "_sumstats/", Trait, "_", Study, "_", Ancestry, "_sumstats_GRCh37_MUNGED.tsv.gz"))
+gwas_colnames <- colnames(lifted_sumstats)
+```
+
+# Create Associations Table
+(Associations = Lead SNPs = Tag SNPs)
+
+```{r}
+dir_path <- paste0(main.dir,"tables/", Trait, "_tables")
+
+if (!dir.exists(dir_path)) {
+  dir.create(dir_path, recursive = TRUE)
+}
+```
+
+Use LeAnn's MPRA metadata table to retrieve all associations and create a seperate table. 
+```{r}
+associations <- run_FM_table$Associations[run_FM_table$Study == Study]
+
+rsid_vector <- strsplit(associations, ",")[[1]]
+
+hits_df <- data.frame(SNP = rsid_vector, stringsAsFactors = FALSE)
+
+gwas_sub <- lifted_sumstats[, c("SNP", "CHR", "BP")]
+
+gwas_hits <- merge(hits_df, gwas_sub, by = "SNP", all.x = TRUE)
+
+filtered_gwas_hits <- gwas_hits[!is.na(gwas_hits$CHR) & !is.na(gwas_hits$BP), ]
+
+write.table(filtered_gwas_hits, paste0(main.dir,"tables/", Trait, "_tables/Lead_SNPs_", Study, ".tsv"),col.names=F, quote=F, row.names = F, sep= "\t")
+```
+
+```{r}
+filtered_gwas_hits <- fread(paste0("~/fine_mapping/tables/", Trait, "_tables/Lead_SNPs_", Study, ".tsv"))
+colnames(filtered_gwas_hits) <- c("SNP", "CHR", "BP")
+```
+
+# Subset the GWAS
+
+For each association, subset the GWAS to contain all SNPs within 100,000 BP from the lead SNP's position. Create a file containing all the positions that fit that criteria. Also, create a graph of the locus p-values. 
+```{r}
+for(i in 1:nrow(filtered_gwas_hits)){
+  
+    locus <- filtered_gwas_hits$SNP[i] 
+    chr <- filtered_gwas_hits$CHR[i]
+    bp_location <- filtered_gwas_hits$BP[i]
+    
+    # Subset GWAS by 200000 bps
+    gwas_subset <- subset(lifted_sumstats, CHR==chr & BP>=(bp_location-100000) & BP<=(bp_location+100000))
+  
+    # Create a table of subsetted GWAS
+    subsetted_GWAS_positions <- subset(gwas_subset, select=c(CHR, BP))
+  
+    # Make directory and write table
+    locus_dir <- paste0(working.dir, locus)
+    if (!dir.exists(locus_dir)) {
+      dir.create(locus_dir)
+    }
+    write.table(subsetted_GWAS_positions, file=paste0(working.dir, locus,"/", locus, 
+                "_gwas_snps_hg19.txt"), col.names=F, quote=F, 
+                row.names = F, sep= "\t")
+    
+    # Plot subsetted GWAS
+    colors <- ifelse(gwas_subset$BP == bp_location, "red", "black")
+    pdf(file = paste0(working.dir, locus, "/", locus, "_gwas_plot.pdf"))
+    locus_plot <- plot(gwas_subset$BP,-log10(gwas_subset$P), col = colors, main=paste0(locus, " p-value plot"))
+    dev.off() 
+  
+}
+```
+
+```{r}
+slurm_dir <- paste0(working.dir, "slurm_logs")
+if (!dir.exists(slurm_dir)) {
+  dir.create(slurm_dir)
+}
+
+bash_dir <- paste0(working.dir, "bash_logs")
+if (!dir.exists(bash_dir)) {
+  dir.create(bash_dir)
+}
+```
+
+```{r}
+for(i in 1:nrow(filtered_gwas_hits)){
+  
+locus <- filtered_gwas_hits$SNP[i]
+LD_dir <- paste0(working.dir, locus, "/LD_block_check")
+
+      if (!dir.exists(LD_dir)) {
+      dir.create(LD_dir)
+      }
+}
+```
+
+# Check if all variants in high LD with lead SNPs are present 
+
+Submit Slurm script subset_1000g_for_LD_check.sh to subset VCFs to 100,000 bp around lead SNPs
+```{r}
+n_rows <- nrow(filtered_gwas_hits)
+
+slurm_subset_1000g_for_LD <- paste0(main.dir, "slurm_scripts/subset_1000g_for_LD_check.sh")
+
+setwd(working.dir)
+
+cmd <- sprintf("sbatch --array=1-%d %s", n_rows, slurm_subset_1000g_for_LD)
+
+system(cmd)
+
+```
+
+
+Make plink files for the subsetted 1000 genomes vcfs based on ancestry samples
+```{bash}
+main_directory="$HOME/fine_mapping/"
+cd ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}
+
+while read -r rsid chr pos19; do
+
+plink \
+  --vcf ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}/${rsid}/LD_block_check/${rsid}.1000g.region.recode.vcf \
+  --make-bed \
+  --keep-fam ${main_directory}1000_genome_files/${Ancestry}.1000g.sample.ID.txt \
+  --out ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}/${rsid}/LD_block_check/${rsid}.region
+  
+done < ${main_directory}tables/${Trait}_tables/Lead_SNPs_${Study}.tsv
+```
+
+Check for plink temp files
+```{bash}
+find . -type f -path '*/LD_block_check/*' -iname '*temporary*' -printf '%h\n' | sort -u
+```
+
+Reformat bim files to be by chr:pos instead of rsid to prevent rsid naming mismatches. Have to also rename fam and bed files to be the same.
+```{bash}
+while read -r rsid chr pos19; do
+
+awk 'BEGIN{OFS="\t"} { $2 = $1 ":" $4; print }' ${rsid}/LD_block_check/${rsid}.region.bim > ${rsid}/LD_block_check/${rsid}.region.chrpos.bim
+
+# Renaming fam and bed files to match bim
+mv ${rsid}/LD_block_check/${rsid}.region.fam ${rsid}/LD_block_check/${rsid}.region.chrpos.fam
+mv ${rsid}/LD_block_check/${rsid}.region.bed ${rsid}/LD_block_check/${rsid}.region.chrpos.bed
+
+done < ${main_directory}tables/${Trait}_tables/Lead_SNPs_${Study}.tsv
+```
+
+Create a file that lists all the positions of variants in high LD (r2 >= 0.6)
+```{bash}
+while read -r rsid chr pos19; do
+
+#tail -n +77 "${main_directory}tables/${Trait}_tables/Lead_SNPs_${Study}.tsv" | while read -r rsid chr pos19; do
+
+  # Filtering plink files of 1000 geno
+
+# Filtering plink files of 1000 genomes to list only variants and SNPs that have r of 0.6 or higher
+plink \
+  --bfile ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}/${rsid}/LD_block_check/${rsid}.region.chrpos \
+    --r2 --ld-snp ${chr}:${pos19} \
+    --ld-window-kb 500 \
+    --ld-window 99999 \
+    --ld-window-r2 0.6 \
+    --out ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}/${rsid}/LD_block_check/${rsid}_1000g_0.6_ld_snps
+
+done < ${main_directory}tables/${Trait}_tables/Lead_SNPs_${Study}.tsv
+```
+Note: pos19 above has to be spot on to pick up any LD
+
+```{r}
+gwas_hits_og <- filtered_gwas_hits
+```
+
+Cutting loci that do not have all SNPs in high LD in the GWAS (with the exception of lead SNPs missing high LD indels). This is because all indels have been cut from the GWAS. 
+```{r}
+rows_to_drop <- c()
+
+for (i in seq_len(nrow(filtered_gwas_hits))) {
+  locus <- filtered_gwas_hits$SNP[i]
+  ld_file_path <- paste0(working.dir, locus, "/LD_block_check/", locus, "_1000g_0.6_ld_snps.ld")
+  locus_snps <- fread(paste0(working.dir, locus, "/", locus, "_gwas_snps_hg19.txt"))
+    
+  if (!file.exists(ld_file_path)) {
+    message("LD file missing for SNP: ", locus)
+    rows_to_drop <- c(rows_to_drop, i)
+    next
+  }
+
+  ld_data <- fread(ld_file_path)
+  drop_locus <- FALSE
+
+  for (j in seq_len(nrow(ld_data))) {
+    bp <- ld_data$BP_B[j]
+
+    if (bp %in% locus_snps$V2) {
+      next
+    } else {
+      bim_file <- fread(paste0(working.dir, locus, "/LD_block_check/", locus, ".region.chrpos.bim"))
+      snp_b <- ld_data$SNP_B[j]
+      bim_row <- bim_file[bim_file$V2 == snp_b, ]
+
+      if (nrow(bim_row) == 0) {
+        drop_locus <- TRUE
+        break
+      }
+
+      allele1 <- bim_row$V5[1]
+      allele2 <- bim_row$V6[1]
+      is_indel <- nchar(allele1) > 1 || nchar(allele2) > 1  # use double-pipe for scalar logical
+
+
+      if (!is_indel) {
+        drop_locus <- TRUE
+        break
+      }
+    }
+  }
+
+  if (drop_locus) {
+    rows_to_drop <- c(rows_to_drop, i)
+  }
+}
+
+if (!is.null(rows_to_drop)) {
+  LD_filtered_gwas_hits <- filtered_gwas_hits[-rows_to_drop, ]
+} else {
+  LD_filtered_gwas_hits <- gwas_hits_og
+}
+
+write.table(LD_filtered_gwas_hits, paste0(main.dir, "tables/", Trait, "_tables/", Study, "_lead_SNPs_filtered_by_LD.tsv"), col.names=F, quote=F, row.names = F, sep= "\t")
+
+```
+
+```{r}
+LD_filtered_gwas_hits <- fread(paste0(main.dir, "tables/", Trait, "_tables/", Study, "_lead_SNPs_filtered_by_LD.tsv"), header = FALSE)
+colnames(LD_filtered_gwas_hits) <- c("SNP", "CHR", "BP")
+```
+
+## Create LD matrix
+
+
+Submit slurm script VCFS_plink_LD_slurm.sh to cut VCF to GWAS subset positions, while also filtering by maf > 0.01. 
+
+
+Make plink files with cut VCFs. Filter out low maf, non-biallelic SNPs, and samples that aren't in ancestry. Create LD matrix and frq files. 
+```{bash}
+main_directory="$HOME/fine_mapping/"
+cd ${main_directory}FM_results/${Trait}/${Trait}_${Study}_${Ancestry}
+
+
+while read -r rsid chr pos19; do
+
+plink \
+--vcf ${rsid}/${rsid}.locus.${Ancestry}.recode.vcf \
+--make-bed \
+--snps-only \
+--maf 0.01 \
+--biallelic-only \
+--keep-allele-order \
+--keep-fam ${main_directory}1000_genome_files/${Ancestry}.1000g.sample.ID.txt \
+--out ${rsid}/${rsid}.locus.${Ancestry}.plink 
+
+# Create the LD matrix
+plink \
+--bfile ${rsid}/${rsid}.locus.${Ancestry}.plink \
+--r square \
+--keep-allele-order \
+--out ${rsid}/${rsid}.locus.${Ancestry}.matrix \
+--write-snplist
+
+# Get frq files
+plink \
+--bfile ${rsid}/${rsid}.locus.${Ancestry}.plink \
+--freq \
+--out ${rsid}/${rsid}.locus.${Ancestry}
+
+done < ${main_directory}tables/${Trait}_tables/${Study}_lead_SNPs_filtered_by_LD.tsv
+```
+
+Check for plink temp files. 
+```{bash}
+
+root_dir="$HOME/fine_mapping/FM_results/${Trait}/${Trait}_${Study}_${Ancestry}"
+
+# Find all directories
+find "$root_dir" -type d | while read -r dir; do
+  # Check if any file in this directory contains 'plink' in its name
+  if find "$dir" -maxdepth 1 -type f -name "*.plink-temporary.*" | grep -q .; then
+    echo "$dir"
+  fi
+done
+
+```
+
+Initialize all_loci_data table that will store every SNP in the study.
+```{r}
+if (!file.exists(paste0(main.dir, "FM_all_loci_data_tables/", Trait, "_all_loci_data.tsv"))) {
+  all_loci_data <- data.table(
+    TRAIT = character(),
+    STUDY = character(),
+    LOCUS = character(),
+    CS_BPS = character(), 
+    SNP = character(),
+    CHR = numeric(),
+    BP = numeric(),
+    REF = character(),
+    ALT = character(),
+    MAF = numeric(),
+    PVAL = numeric(), 
+    PIP = numeric(), 
+    CS = character(), 
+    CS_SIZE = numeric(),
+    LD_to_LEAD = numeric(), 
+    LAMBDA = numeric(),
+    BP_38 = numeric(), 
+    VARIANT = character(),
+    stringsAsFactors = FALSE
+)
+} else{
+    all_loci_data <- fread(paste0(main.dir, "FM_all_loci_data_tables/", Trait, "_all_loci_data.tsv"), header = FALSE)
+    colnames(all_loci_data) <- c("TRAIT", "STUDY", "LOCUS", "CS_BPS", "SNP", "CHR", "BP", "REF", "ALT", "MAF", 
+                                 "PVAL", "PIP", "CS", 
+                               "CS_SIZE", "LD_to_LEAD", "LAMBDA", "BP_38", "VARIANT")
+}
+```
+
+
+Aligning the GWAS subset with the bim file to avoid dimensional errors between LD matrix and GWAS subset. Save aligned GWAS subset and the info it contains for study SNPs.
+```{r}
+for(i in 1:nrow(LD_filtered_gwas_hits)){
+  locus <- LD_filtered_gwas_hits$SNP[i] 
+  chr <- LD_filtered_gwas_hits$CHR[i]
+  bp_location <- LD_filtered_gwas_hits$BP[i]
+    
+  gwas_subset <- subset(lifted_sumstats, CHR==chr & BP>=(bp_location-100000) & BP<=(bp_location+100000))
+  
+  R <- as.matrix(fread(paste0(working.dir, locus, "/", locus, ".locus.", Ancestry, ".matrix.ld"), header = FALSE))
+    
+  bim <- fread(paste0(working.dir, locus, "/", locus, ".locus.", Ancestry, ".plink.bim"))
+    
+  # Create a key of chr:bp
+  gwas_subset$key <- paste(gwas_subset$CHR, gwas_subset$BP, sep = ":")
+
+  # Find duplicated chr:bp keys
+  dup_keys <- gwas_subset$key[duplicated(gwas_subset$key) | duplicated(gwas_subset$key, 
+                                                                       fromLast = TRUE)]
+  # Subset GWAS to only duplicated keys
+  gwas_dups <- gwas_subset[gwas_subset$key %in% dup_keys, ]
+  
+  # Remove all duplicate chr:bp rows from original gwas_subset
+  gwas_nodups <- gwas_subset[!gwas_subset$key %in% dup_keys, ]
+
+  # Create a chr:bp key in bim file
+  bim$key <- paste(bim$V1, bim$V4, sep = ":")
+
+  # Add allele columns to bim with standardized names. A2=V5 in this case
+  bim_df <- bim[, c("key", "V5", "V6")]
+  colnames(bim_df) <- c("key", "A2", "A1")
+
+  # Dups in GWAS and bim
+  matched_dups <- merge(gwas_dups, bim_df, by = c("key", "A1", "A2"))
+
+  # Drop any extra columns from bim_df that were added in the merge
+  matched_dups <- matched_dups[, names(gwas_subset), with = FALSE]
+  
+  gwas_nodups <- as.data.table(gwas_nodups)
+  matched_dups <- as.data.table(matched_dups)
+  
+  setcolorder(matched_dups, names(gwas_nodups))
+  
+  gwas_cleaned <- rbindlist(
+    list(gwas_nodups, matched_dups),
+    use.names = TRUE,
+    fill = TRUE
+  )
+
+  gwas_cleaned$key <- NULL
+  
+  if(nrow(data.frame(R))!=nrow(gwas_cleaned)){
+    gwas_subset <- subset(gwas_cleaned, BP%in%bim$V4)
+  }
+  
+  write.table(gwas_subset, paste0(working.dir, locus, "/", locus, "_gwas_subset_aligned.tsv"), quote=FALSE, row.names = FALSE, col.names = FALSE, sep = "\t")
+  
+  for(j in 1:nrow(gwas_subset)){
+    snp <- gwas_subset$SNP[j]
+    chr <- gwas_subset$CHR[j]
+    bp <- gwas_subset$BP[j]
+    locus_bps <- paste0(bp_location + 100000, ", ", bp_location - 100000)
+    pvalue <- gwas_subset$P[j]
+    ref <- gwas_subset$A1[j]
+    alt <- gwas_subset$A2[j]
+    bp_38 <- gwas_subset$BASE_PAIR_LOCATION_GRCH38[j]
+    variant <- paste0(chr, "_", bp_38, "_", ref, "_", alt)
+    
+    row <- data.table(TRAIT = Trait, STUDY = Study, LOCUS = locus, CS_BPS = locus_bps, SNP = snp, CHR = chr, BP = bp, REF = ref, ALT = alt, MAF = NA, PVAL = pvalue, PIP = NA, CS = NA, CS_SIZE = NA, LD_to_LEAD = NA, LAMBDA = NA, BP_38 = bp_38, VARIANT = variant)
+
+    all_loci_data <- rbind(all_loci_data, row, fill = TRUE)
+  }
+  
+}
+```
+
+Get the maf from the frq files for all SNPs. 
+```{r}
+for(i in 1:nrow(LD_filtered_gwas_hits)){
+  
+  locus <- LD_filtered_gwas_hits$SNP[i]
+  
+  locus_gwas <- fread(paste0(working.dir, locus, "/", locus, "_gwas_subset_aligned.tsv"), header=FALSE, fill=TRUE, sep = "\t")
+  colnames(locus_gwas) <- gwas_colnames
+  
+  locus_frq <- fread(paste0(working.dir, locus, "/", locus, ".locus.", Ancestry, ".frq"))
+  
+  for(j in 1:nrow(locus_gwas)){
+    maf <- locus_frq$MAF[locus_frq$SNP == locus_gwas$SNP[j]]
+    if(length(maf)>0){
+      all_loci_data$MAF[all_loci_data$SNP == locus_gwas$SNP[j]] <- maf
+    } else {
+      all_loci_data$MAF[all_loci_data$SNP == locus_gwas$SNP[j]] <- NA
+    }
+  }
+  
+}
+```
+
+All CS and PIPs table
+```{r}
+# all_cs_snps <- data.frame(
+#   Locus = character(),
+#   SNP = character(),
+#   PIP = numeric(),
+#   Credible_Set = character(),
+#   stringsAsFactors = FALSE
+# )
+```
+
+## Run SuSiE
+
+Run SuSiE and QC checks for each locus. 
+```{r}
+
+L <- 10
+
+for(i in 1:nrow(LD_filtered_gwas_hits)){
+  
+  locus <- LD_filtered_gwas_hits$SNP[i]
+  chr <- LD_filtered_gwas_hits$CHR[i]
+  bp_location <- LD_filtered_gwas_hits$BP[i]
+  
+  print(paste0("Locus: ", locus))
+  
+  locus_gwas <- fread(paste0(working.dir, locus, "/", locus, "_gwas_subset_aligned.tsv"), header=FALSE, fill=TRUE, sep = "\t")
+  colnames(locus_gwas) <- gwas_colnames
+  
+  R <- as.matrix(fread(paste0(working.dir, locus, "/", locus, ".locus.", Ancestry, ".matrix.ld")), 
+                   header = FALSE)
+  snp_list_df <- fread(paste0(working.dir, locus, "/", locus, 
+                                  ".locus.", Ancestry, ".matrix.snplist"), header = FALSE)
+  snp_list <- snp_list_df[[1]]
+  rownames(R) <- snp_list
+  colnames(R) <- snp_list
+  R[is.nan(R)] <- 0
+  
+  for(j in 1:nrow(locus_gwas)){
+    snp <- locus_gwas$SNP[j]
+    
+    if(snp %in% colnames(R) && snp %in% rownames(R) && locus %in% colnames(R) && locus %in% rownames(R)){
+      ld2lead <- R[locus, snp]
+    } else {
+      ld2lead <- NA
+    }
+    
+    all_loci_data$LD_to_LEAD[all_loci_data$SNP == locus_gwas$SNP[j]] <- ld2lead
+  }
+  
+  # Beta values
+  b <- locus_gwas$BETA
+
+  # Fix the SE that are zero and NA (MUNGE DOES THIS)
+  se <- locus_gwas$SE
+  se[se==0]<-0.000000001
+  se[is.na(se)]<-0.000000001
+  
+  # Calculate Z scores and add to GWAS
+  z_scores <- b / se
+  
+
+  # Run the susie model, calculate credible sets and calculate pips (L is maximum amount #
+  # of causal variants)
+  #fitted <- susie_rss(bhat = b, shat = se, n = n, R = R_fixed, L = 10, r_tol = 1e-04)
+  fitted <- susie_rss(z=z_scores, n = n, R = R, L = L)
+  #susie_plot(fitted, y = "PIP", b = b, main = paste0("SuSiE PIPs with Credible sets for 
+                                                     #locus ", locus))
+  
+  ### PLOTS and TABLES ###
+  # # BETA PLOT
+  pdf(file = paste0(working.dir, locus, "/", locus, "_beta_plot.pdf"))
+  plot(b, pch=16, ylab='effect size',main=paste0("beta values for ",locus," locus"))
+  dev.off()
+  # 
+  #
+  # # PVAL PLOT
+  pdf(file = paste0(working.dir, locus, "/", locus, "_pval_plot.pdf"))
+  susie_plot(z_scores, y = "z", b=b,main=paste0("p values for ",locus," locus"))
+  dev.off()
+  # 
+  #
+  # # SUSIE PLOT
+  pdf(file = paste0(working.dir, locus, "/", locus, "_susie_plot_L", L, ".pdf"))
+  susie_plot(fitted, y = "PIP", b = b, main = paste0("SuSiE PIPs with Credible Sets for
+                                                     locus ", locus))
+  dev.off()
+  # 
+  #
+  # # SUSIE LOCUS PIPS TABLE
+  snp_ids <- names(fitted$pip)
+  pips_and_cs <- data.frame(
+  SNP = snp_ids,
+  PIP = fitted$pip,
+  Credible_Set = NA_character_,
+  stringsAsFactors = FALSE
+  )
+  # Add CS ID for each SNP in a credible set
+  if (!is.null(fitted$sets)) {
+    for (i in seq_along(fitted$sets$cs)) {
+      cs_index <- fitted$sets$cs[[i]]
+      cs_snp_ids <- snp_ids[cs_index]
+      pips_and_cs$Credible_Set[pips_and_cs$SNP %in% cs_snp_ids] <- paste0("CS", i)
+    }
+  }
+  write.table(pips_and_cs, paste0(working.dir, locus, "/", locus, "_pips_and_CS_L", L, ".txt"))
+  
+  for(k in 1:nrow(pips_and_cs)){
+    pip <- pips_and_cs$PIP[pips_and_cs$SNP == pips_and_cs$SNP[k]]
+    cs <- pips_and_cs$Credible_Set[pips_and_cs$SNP == pips_and_cs$SNP[k]]
+    all_loci_data$PIP[all_loci_data$SNP == pips_and_cs$SNP[k]] <- pip
+    all_loci_data$CS[all_loci_data$SNP == pips_and_cs$SNP[k]] <- cs
+  }
+
+  
+  # # SUSIE ALL PIPS TABLE
+  # if (!is.null(fitted$sets) && length(fitted$sets$cs) > 0) {
+  #   for (i in seq_along(fitted$sets$cs)) {
+  #     cs_index <- fitted$sets$cs[[i]]
+  #     cs_snps <- snp_ids[cs_index]
+  #     cs_pips <- fitted$pip[cs_index]
+  #     cs_df <- data.frame(
+  #       Locus = locus,
+  #       SNP = cs_snps,
+  #       PIP = cs_pips,
+  #       Credible_Set = paste0("CS", i),
+  #       stringsAsFactors = FALSE
+  #     )
+  #     # Append to master result table
+  #     all_cs_snps <- rbind(all_cs_snps, cs_df)
+  #   }
+  # }
+
+
+  ## LAMDA AND QC ##
+  lambda = estimate_s_rss(z_scores, R, n=n)
+  all_loci_data$LAMBDA[all_loci_data$LOCUS == locus] <- lambda
+
+  # The plot for the observed z scores vs the expected z scores
+  condz_in = kriging_rss(z_scores, R, n=n)
+  #condz_in$plot
+  qc_table <- condz_in$conditional_dist
+
+  qc.plot <- condz_in$plot + labs(title=paste0(locus, " locus QC plot in ",Ancestry, "
+                                               population"), caption=paste0("Lambda = ",
+                                                                            lambda))
+  #print(qc.plot)
+  ggsave(filename=paste0(locus,"_",Ancestry, "_qc_plot.pdf"),plot = qc.plot, path = 
+           paste0(working.dir, locus, "/"))
+
+
+  
+}
+```
+
+Count how many SNPs are in a credible set for each locus
+```{r}
+
+cs_counts <- all_loci_data[!is.na(CS), .N, by = .(LOCUS, CS)]
+
+for (i in 1:nrow(cs_counts)) {
+  all_loci_data[LOCUS == cs_counts$LOCUS[i] & CS == cs_counts$CS[i], CS_SIZE := cs_counts$N[i]]
+}
+
+write.table(all_loci_data, paste0(main.dir, "FM_all_loci_data_tables/", Trait, "_", Study, "_", Ancestry, "_all_loci_data.tsv"), col.names = TRUE, sep = "\t")
+```
+
+
+
+If you wanted to save all PIPs and CS table. 
+
+Write table with all SNPs and CS when all loci have been processed
+```{r}
+write.table(all_cs_snps, paste0(working.dir, Trait, "_", Study, "_all_PIPs_L", L, ".tsv"), sep="\t")
+```
+
+If you wanted to ensure lead SNPs were in the bim file when FM.
+```{r}
+rows_to_drop1 <- c()
+for(i in 1:nrow(LD_filtered_gwas_hits)){
+  locus <- LD_filtered_gwas_hits$SNP[i]
+  bim <- fread(paste0(working.dir, locus, "/", locus, ".locus.", Ancestry, ".plink.bim"))
+  
+  if(!(locus %in% bim$V2)){
+    rows_to_drop1 <- c(rows_to_drop1, i)
+  }
+  
+}
+
+  LD_filtered_gwas_hits <- LD_filtered_gwas_hits[-rows_to_drop1, ]
+```
+
+
