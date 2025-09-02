@@ -3,15 +3,69 @@ title: "20250813_FM_Study_Script"
 output: html_document
 date: "2025-08-08"
 author: Gabrielle DeNonno
+description: tutorial/outline for fine mapping one study
 ---
 
-NOTE: we have been doing all our work in genome build hg19 because vcf tools requires a different version for hg38. Note that this means all files will be converted to hg19 / all 1000 genomes files will be hg19.
+Required materials: 
+  - 1000 genomes files
+  - 1000 genomes sample info
+
+  Tools: 
+  - vcftools
+  - plink
+
+  
+1000 genomes vcf files in hg19 come from this link:
+https://hgdownload.cse.ucsc.edu/gbdb/hg19/1000Genomes/phase3/
+
+1000 genomes vcf files in hg38 from this link: 
+https://hgdownload.cse.ucsc.edu/gbdb/hg38/1000Genomes/ 
+ 
+The 1000g sample information is found here:
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel 
+
+Download the 1000 genomes files and sample info (ONCE). 
+```{bash}
+ wget -r -np -nH --cut-dirs=3 https://hgdownload.cse.ucsc.edu/gbdb/hg19/1000Genomes/phase3/ 
+ wget -r -np -nH --cut-dirs=3 https://hgdownload.cse.ucsc.edu/gbdb/hg38/1000Genomes/ 
+ wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel 
+```
+
+Create the 1000g EUR and EAS sample list (ONCE).
+
+Get information on the sample IDs from the internet. This link: https://opain.github.io/GenoPred/Pipeline_prep.html
+
+```{bash}
+main_directory="$HOME/fine_mapping/"
+```
+
+```{bash}
+curl ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel > ${main_directory}1000_genome_files/thousand_genomes_sample_info.txt
+```
+
+```{r}
+main.dir <- "~/fine_mapping/"
+#Subset the sample IDs to European ancestry
+sample.info.1000g <- fread(paste0(main.dir,"1000_genome_files/thousand_genomes_sample_info.txt"))
+EUR.1000g.sample.ID <- subset(sample.info.1000g, super_pop=="EUR")$sample
+# 503 European samples
+write.table(EUR.1000g.sample.ID, file=paste0(main.dir,"1000_genome_files/EUR.1000g.sample.ID.txt"), col.names=F, quote=F, row.names = F, sep= "\t")
+
+#Subset the sample IDs to East Asian ancestry
+sample.info.1000g <- fread(paste0(main.dir,"1000_genome_files/thousand_genomes_sample_info.txt"))
+EAS.1000g.sample.ID <- subset(sample.info.1000g, super_pop=="EAS")$sample
+# 503 EAS samples
+write.table(EAS.1000g.sample.ID, file=paste0(main.dir,"1000_genome_files/EAS.1000g.sample.ID.txt"), col.names=F, quote=F, row.names = F, sep= "\t")
+```
+
+
+########################################################################################################################################################
+
 
 ```{r}
 library(data.table)
 library(susieR)
 library(ggplot2)
-#library(RColorBrewer)
 library(MungeSumstats)
 library(SNPlocs.Hsapiens.dbSNP155.GRCh38)
 library(BSgenome.Hsapiens.NCBI.GRCh38)
@@ -25,10 +79,6 @@ Subsetted table from LeAnn's MPRA metadata table that contains GWASs for FM. The
 run_FM_table <- fread("~/fine_mapping/RUN_FM_TABLE.tsv")
 ```
 
-```{bash}
-main_directory="$HOME/fine_mapping/"
-```
-
 R and Bash variables for selected study. 
 Note: GWAS_build is assumed to be GRCh38 if the GWAS was harmonized. 
 ```{r}
@@ -37,6 +87,10 @@ Study <- "GCST004131" # GWAS catalog ID number
 Ancestry <- "EUR"
 n <- 59957 # GWAS sample size
 GWAS_build <- "GRCh38"
+```
+
+```{bash}
+main_directory="$HOME/fine_mapping/"
 ```
 
 ```{bash}
@@ -83,7 +137,7 @@ zcat ${Trait}_${Study}_${Ancestry}_sumstats_${GWAS_build}.tsv.gz | head -n 5
 
 Munge the GWAS in SLURM. R script that is being run in Slurm job needs to be corrected for the current variables. Memory for this step has proven to be an issue. ~/fine_mapping/slurm_scripts/MungeSumstats_flipfrq_slurm.R
 
-Learn more about MuungeSumstats here: https://www.bioconductor.org/packages/release/bioc/html/MungeSumstats.html
+Learn more about MungeSumstats here: https://www.bioconductor.org/packages/release/bioc/html/MungeSumstats.html
 
 ```{bash}
 cd ${main_directory}GWAS_sumstats_G
