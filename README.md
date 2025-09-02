@@ -1,4 +1,4 @@
-# Autoimmune Fine Mapping (Summer 2025 Project)
+# Autoimmune Fine Mapping Using SuSiE (Summer 2025 Project)
 This repository contains all the required materials to replicate the FM work Max and I completed during summer 2025. Information on the repo contents, general workflow, and SUSIR/SUSIEX outlined below. 
 
 ## Repo Contents
