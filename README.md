@@ -7,15 +7,15 @@ This repository contains all the required materials to replicate the FM work Max
 install_tools/: Contains instructions on installing required tools in Posit. Contains instructions for vcftools and plink, which are required for SUSIER. Also contains instructions for installing **SuSiEX**.  
 
 slurm_scripts/
-- MungeSumstats_flipfrq_slurm.R: DESCRIPTION  
-- MungeSumstats_flipfrq_slurm.sh: DESCRIPTION  
+- MungeSumstats_flipfrq_slurm.R: Munge R Script that is run by shell script of the same name.   
+- MungeSumstats_flipfrq_slurm.sh: Run Munge R script in Slurm for one study. Attempted to Munge multiple GWASs at once using Slurm. Wasn't super successful because of GWAS variation and memory/time constraints, but the code is there.   
 - MungeSumstats_slurm.R: DESCRIPTION  
 - MungeSumstats_slurm.sh: DESCRIPTION  
-- VCFS_plink_LD_slurm.sh: DESCRIPTION  
-- getGWAS.sh: DESCRIPTION  
-- subset_1000g_for_LD_check.sh: DESCRIPTION  
+- VCFS_plink_LD_slurm.sh: Slurm script for creating VCFs in Step BLANK. Creates VCFs of only GWAS positions around each lead loci in parallel. 
+- getGWAS.sh: Slurm script for downloading all harmonized GWASs in the RUN_FM_TABLE.tsv in parallel.  
+- subset_1000g_for_LD_check.sh: Slurm script for creating VCFs in Step BLANK. Creates VCFs for each area around the lead loci in parallel.   
   
-RUN_FM_TABLE: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found HERE. Original table can be found HERE. 
+RUN_FM_TABLE: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found HERE. Original table created by LeAnn Nguyen can be found [here](https://bri.box.com/s/9tf23s7hxsaz5lzaimc6jd08o81g64xt). 
 
 ## Workflow
 ### If starting from beginning:
