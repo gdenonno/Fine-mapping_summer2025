@@ -1,7 +1,7 @@
 # Fine Mapping of Autoimmune Traits Using SuSiE (Summer 2025 Project)
-This repository contains all the required materials to replicate the FM work Max and I completed during Summer 2025. Information on the repo contents, general workflow, and SUSIR/SUSIEX outlined below. 
+This repository contains all the required materials to replicate the FM work Max and I completed during Summer 2025. Information on the repo contents, general workflow, and SUSIER/SUSIEX outlined below. 
 
-## Repo Contents
+## Contents
 **Fine_Mapping_Trait_RMDs/20250813_FM_Study_Script.Rmd**:  The main Markdown for the FM process. Contains all info to complete FM for a single study from scratch, including instructions on downloading 1K Genomes files. The Markdown is my best attempt at streamlining the FM process and was created with the hope that the only changes required would be replacing the Trait and GWAS info (trait, study, sample size, etc). 
   
 **install_tools/**: Contains instructions on installing required tools in Posit. Contains instructions for vcftools and plink, which are required for SUSIER. Also contains instructions for installing **SuSiEX**.  
@@ -15,7 +15,7 @@ This repository contains all the required materials to replicate the FM work Max
 - getGWAS.sh: Slurm script for downloading all harmonized GWASs in the RUN_FM_TABLE.tsv in parallel.  
 - subset_1000g_for_LD_check.sh: Slurm script for creating VCFs in Step BLANK. Creates VCFs for each area around the lead loci in parallel.   
   
-**RUN_FM_TABLE.tsv**: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found HERE. Original table created by LeAnn Nguyen can be found [here](https://bri.box.com/s/9tf23s7hxsaz5lzaimc6jd08o81g64xt). 
+**RUN_FM_TABLE.tsv**: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found [here](https://bri.box.com/s/rt9p2f02ka2jgmayx4onhnp8vae1an4g). Original table created by LeAnn Nguyen can be found [here](https://bri.box.com/s/9tf23s7hxsaz5lzaimc6jd08o81g64xt). 
 
 ## Workflow
 ### If starting from beginning:
@@ -30,7 +30,7 @@ This repository contains all the required materials to replicate the FM work Max
 ### (SusieR) If starting with a new study: 
 1. **Choose which study to FM** from RUN_FM_TABLE.tsv. Get following info: Trait, Study, GWAS link, genome build (if possible).
    
-2. **Download the GWAS from GWAS** catalog using GWAS link and wget.
+2. **Download the GWAS** from GWAS catalog using GWAS link and wget.
    
 3. **Munge the GWAS** in Slurm using MungeSumstats_flipfrq_slurm.R/.sh. Ensure Munge was completed successfully and sumstats have > ~1 million rows and proper columns (B/SE/OR/Z). Munge run info can be found in log file: file*_log_msg.txt.
 
