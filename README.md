@@ -1,5 +1,5 @@
 # Autoimmune Fine Mapping Using SuSiE (Summer 2025 Project)
-This repository contains all the required materials to replicate the FM work Max and I completed during summer 2025. Information on the repo contents, general workflow, and SUSIR/SUSIEX outlined below. 
+This repository contains all the required materials to replicate the FM work Max and I completed during Summer 2025. Information on the repo contents, general workflow, and SUSIR/SUSIEX outlined below. 
 
 ## Repo Contents
 **Fine_Mapping_Trait_RMDs/20250813_FM_Study_Script.Rmd**:  The main Markdown for the FM process. Contains all info to complete FM for a single study from scratch, including instructions on downloading 1K Genomes files. The Markdown is my best attempt at streamlining the FM process and was created with the hope that the only changes required would be replacing the Trait and GWAS info (trait, study, sample size, etc). 
@@ -42,11 +42,14 @@ RUN_FM_TABLE: Subsetted metadata table for MPRA library. Contains information on
 Example FM directory:
 - fine_mapping
     - FM_Trait_RMDs
+    - SUSIEX_RMDs
     - FM_results
+    - SUSIEX_results
     - GWAS_sumstats
     - 1000_genomes
         - 1000g_hg19
         - 1000h_hg38
+    - GWAS_associations_tables
     - install_tools
 
 ## Githubs
