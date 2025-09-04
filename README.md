@@ -11,9 +11,9 @@ This repository contains all the required materials to replicate the FM work Max
 - MungeSumstats_flipfrq_slurm.sh: Run Munge R script in Slurm for one study. Attempted to Munge multiple GWASs at once using Slurm. Wasn't super successful because of GWAS variation and memory/time constraints, but the code is there.   
 - MungeSumstats_slurm.R: Original/basic Munge R Script.  
 - MungeSumstats_slurm.sh: Original/basic run of Munge R Script.   
-- VCFS_plink_LD_slurm.sh: Slurm script for creating VCFs in Step BLANK. Creates VCFs of only GWAS positions around each lead loci in parallel. 
+- VCFS_plink_LD_slurm.sh: Slurm script for creating VCFs in Step 7a. Creates VCFs of only GWAS positions around each lead loci in parallel. 
 - getGWAS.sh: Slurm script for downloading all harmonized GWASs in the RUN_FM_TABLE.tsv in parallel.  
-- subset_1000g_for_LD_check.sh: Slurm script for creating VCFs in Step BLANK. Creates VCFs for each area around the lead loci in parallel.   
+- subset_1000g_for_LD_check.sh: Slurm script for creating VCFs in Step 6a. Creates VCFs for each area around the lead loci in parallel.   
   
 **RUN_FM_TABLE.tsv**: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found [here](https://bri.box.com/s/rt9p2f02ka2jgmayx4onhnp8vae1an4g). Original table created by LeAnn Nguyen can be found [here](https://bri.box.com/s/9tf23s7hxsaz5lzaimc6jd08o81g64xt). 
 
@@ -25,7 +25,7 @@ This repository contains all the required materials to replicate the FM work Max
 4. **Install vcftools.** Instructions in install_tools/install_vcftools.
 5. **Install required packages.** Instructions: [SusieR](https://github.com/stephenslab/susieR), [MungeSumstats](https://www.bioconductor.org/packages/release/bioc/html/MungeSumstats.html), [Munge dbSNP GRCh packages](https://www.bioconductor.org/packages/devel/bioc/vignettes/MungeSumstats/inst/doc/MungeSumstats.html), [SusieX](https://github.com/getian107/SuSiEx)
 6. **Download RUN_FM_TABLE.tsv.** In the repo.
-7. **(SusieX) Create 1000 genomes plink files.** Instructions in BLANK:
+7. **(SusieX) Create 1000 genomes plink files.** Instructions in IN PROGRESS:
 
 ### (SusieR) If starting with a new study: 
 1. **Choose which study to FM** from RUN_FM_TABLE.tsv. Get following info: Trait, Study, GWAS link, genome build (if possible).
@@ -63,7 +63,7 @@ This repository contains all the required materials to replicate the FM work Max
   
 8. **Align the GWAS subsets with the bim files** produced in step 7b. Eliminates dimensional errors with LD matrix when running SuSiE. Collect information on all SNPs.
 9. **Run SuSiE and QC checks.** Use the LD matrix, N, z-scores (or beta and SE/OR) to run SuSiE and QC checks. Collect information: beta plots, locus lots, SuSiE plot, QC plot, all PIPs (posterior inclusion probabilities) and CSs (Credible Sets), lambda (metric of LD alignment with summary stats).
-10. (Optional) **Fix QC flags**. BLANKS
+10. (Optional) **Fix QC flags**. IN PROGRESS
 
 
 ### (SusieX) If starting with a new study: 
