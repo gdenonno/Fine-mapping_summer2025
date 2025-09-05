@@ -25,7 +25,6 @@ This repository contains all the required materials to replicate the FM work Max
 4. **Install vcftools.** Instructions in install_tools/install_vcftools.
 5. **Install required packages.** Instructions: [SusieR](https://github.com/stephenslab/susieR), [MungeSumstats](https://www.bioconductor.org/packages/release/bioc/html/MungeSumstats.html), [Munge dbSNP GRCh packages](https://www.bioconductor.org/packages/devel/bioc/vignettes/MungeSumstats/inst/doc/MungeSumstats.html), [SusieX](https://github.com/getian107/SuSiEx)
 6. **Download RUN_FM_TABLE.tsv.** In the repo.
-7. **(SusieX) Create 1000 genomes plink files.** Instructions in IN PROGRESS:
 
 ### (SusieR) If starting with a new study: 
 1. **Choose which study to FM** from RUN_FM_TABLE.tsv. Get following info: Trait, Study, GWAS link, genome build (if possible).
@@ -62,11 +61,10 @@ This repository contains all the required materials to replicate the FM work Max
      7d. **Get frequency files**/minor allele frequency (MAF) for each SNP.
   
 8. **Align the GWAS subsets with the bim files** produced in step 7b. Eliminates dimensional errors with LD matrix when running SuSiE. Collect information on all SNPs.
-9. **Run SuSiE and QC checks.** Use the LD matrix, N, z-scores (or beta and SE/OR) to run SuSiE and QC checks. Collect information: beta plots, locus lots, SuSiE plot, QC plot, all PIPs (posterior inclusion probabilities) and CSs (Credible Sets), lambda (metric of LD alignment with summary stats).
-10. (Optional) **Fix QC flags**. IN PROGRESS
-
-
-### (SusieX) If starting with a new study: 
+9. 
+10. **Run SuSiE and QC checks.** Use the LD matrix, N, z-scores (or beta and SE/OR) to run SuSiE and QC checks. Collect information: beta plots, locus lots, SuSiE plot, QC plot, all PIPs (posterior inclusion probabilities) and CSs (Credible Sets), lambda (metric of LD alignment with summary stats).
+11. 
+12. (Optional) **Fix QC flags**. Fix SNPs that are flagged by QC check because their expected and observed z-scores do not align. IN PROGRESS
 
 
 ## Sample Directory
