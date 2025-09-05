@@ -12,7 +12,7 @@ This repository contains all the required materials to replicate the FM work Max
 - MungeSumstats_slurm.R: Original/basic Munge R Script.  
 - MungeSumstats_slurm.sh: Original/basic run of Munge R Script.   
 - VCFS_plink_LD_slurm.sh: Slurm script for creating VCFs in Step 7a. Creates VCFs of only GWAS positions around each lead loci in parallel. 
-- getGWAS.sh: Slurm script for downloading all harmonized GWASs in the RUN_FM_TABLE.tsv in parallel.  
+- getGWAS.sh: Slurm script for downloading all harmonized GWASs in the RUN_FM_TABLE.tsv in parallel. **All harmonized GWASs downloaded in my fine_mapping/GWAS_sumstats_G folder.**  
 - subset_1000g_for_LD_check.sh: Slurm script for creating VCFs in Step 6a. Creates VCFs for each area around the lead loci in parallel.   
   
 **RUN_FM_TABLE.tsv**: Subsetted metadata table for MPRA library. Contains information on 311 GWASs which we hope to FM. Columns include: (Trait, Study, Ancestry, N, Associations, N_Associations, GWAS_h_Link, Other_GWAS_Link). Progress log for FM these GWASs can be found [here](https://bri.box.com/s/rt9p2f02ka2jgmayx4onhnp8vae1an4g). Original table created by LeAnn Nguyen can be found [here](https://bri.box.com/s/9tf23s7hxsaz5lzaimc6jd08o81g64xt). 
