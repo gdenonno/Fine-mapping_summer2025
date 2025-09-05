@@ -1,4 +1,4 @@
-# Fine Mapping of Autoimmune Traits Using SuSiE (Summer 2025 Project)
+# Fine Mapping Autoimmune Traits Using SuSiE (Summer 2025 Project)
 This repository contains all the required materials to replicate the FM work Max and I completed during Summer 2025. Information on the repo contents, general workflow, and SUSIER/SUSIEX outlined below. 
 
 ## Contents
